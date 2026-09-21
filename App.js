@@ -26,6 +26,12 @@ const COLORS = {
   gold: '#ffd23f',
 };
 
+const DIFF_COLORS = {
+  easy: '#2bff88',
+  medium: '#ffd23f',
+  hard: '#ff5c5c',
+};
+
 export default function App() {
   const [screen, setScreen] = useState('home'); // home | quiz | result
   const [name, setName] = useState('');
@@ -64,7 +70,11 @@ export default function App() {
   }
 
   function startGame() {
-    setRound(shuffled(QUESTIONS));
+    // Difficulty ramp: easy questions first, then medium, then hard.
+    // Shuffled within each tier so every run feels fresh.
+    const byTier = (t) =>
+      shuffled(QUESTIONS.filter((q) => (q.difficulty || 'easy') === t));
+    setRound([...byTier('easy'), ...byTier('medium'), ...byTier('hard')]);
     setIndex(0);
     setScore(0);
     setPicked(null);
@@ -102,6 +112,7 @@ export default function App() {
       {screen === 'quiz' && (
         <QuizScreen
           q={round[index]}
+          round={round}
           index={index}
           picked={picked}
           onChoose={choose}
@@ -131,7 +142,7 @@ function HomeScreen({ name, setName, board, onStart }) {
         FAN <Text style={styles.titleAccent}>or</Text> LARPER?
       </Text>
       <Text style={styles.subtitle}>
-        {TOTAL} questions. Real fans rise. Larpers get exposed.
+        {TOTAL} questions, easy to brutal. Real fans rise. Larpers get exposed.
       </Text>
 
       <TextInput
@@ -164,21 +175,34 @@ function HomeScreen({ name, setName, board, onStart }) {
       <Text style={styles.hint}>
         Party mode: pass the phone around, everyone plays, lowest score buys snacks.
       </Text>
+      <Text style={styles.disclaimer}>
+        Fan-made trivia. Not affiliated with or endorsed by Capcom, Sony, Insomniac Games, or any other rights holders.
+      </Text>
     </ScrollView>
   );
 }
 
 /* ------------------------------ QUIZ ------------------------------ */
 
-function QuizScreen({ q, index, picked, onChoose, onNext }) {
+function QuizScreen({ q, round, index, picked, onChoose, onNext }) {
   if (!q) return null;
   const revealed = picked !== null;
+  const tier = q.difficulty || 'easy';
+  const tierUp =
+    index > 0 &&
+    round[index - 1] &&
+    (round[index - 1].difficulty || 'easy') !== tier;
 
   return (
     <View style={styles.quizWrap}>
-      <Text style={styles.progress}>
-        QUESTION {index + 1} / {TOTAL}
+      <Text style={[styles.progress, { color: DIFF_COLORS[tier] }]}>
+        {tier.toUpperCase()} • QUESTION {index + 1} / {TOTAL}
       </Text>
+      {tierUp && (
+        <Text style={styles.tierBanner}>
+          DIFFICULTY UP — {tier.toUpperCase()} ROUND
+        </Text>
+      )}
       <View style={styles.progressBar}>
         <View
           style={[styles.progressFill, { width: `${((index + 1) / TOTAL) * 100}%` }]}
@@ -231,7 +255,7 @@ function QuizScreen({ q, index, picked, onChoose, onNext }) {
 
 function ResultScreen({ name, score, board, onReplay, onHome }) {
   const verdict = getVerdict(score);
-  const exposed = score <= 4;
+  const exposed = score < 20;
 
   return (
     <ScrollView contentContainerStyle={styles.center}>
@@ -392,6 +416,25 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 24,
     fontStyle: 'italic',
+  },
+  disclaimer: {
+    color: COLORS.dim,
+    fontSize: 11,
+    textAlign: 'center',
+    marginTop: 12,
+    lineHeight: 16,
+    opacity: 0.7,
+  },
+  tierBanner: {
+    color: COLORS.gold,
+    fontWeight: '900',
+    letterSpacing: 2,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: 16,
+    backgroundColor: COLORS.card,
+    borderRadius: 10,
+    padding: 10,
   },
   quizWrap: {
     flex: 1,
